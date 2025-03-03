@@ -1,12 +1,12 @@
 from fastapi import Response, status, APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
+from app.database import get_db
 from typing import List, Dict, Any
-from models import User, Product, Cart, Order
-from schemas import IProductItem
+from app.models import User, Product, Cart, Order
+from app.schemas import IProductItem
 from pydantic import BaseModel
 from sqlalchemy.orm.attributes import flag_modified
-from auth import get_current_user, bcrypt_context, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token
+from app.auth import get_current_user, bcrypt_context, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 

@@ -7,7 +7,7 @@ from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from models import User
+from app.models import User
 from typing import Annotated
 
 JWT_SECRET = "cairocoders123456789"
