@@ -13,6 +13,8 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String, nullable=False)  # Пароль пользователя
     active = Column(Boolean, default=True)  # Активность пользователя
+    role = Column(String, default='USER')
+
 
     carts = relationship("Cart", back_populates="user")
     orders = relationship("Order", back_populates="user")

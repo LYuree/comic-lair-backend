@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     active: bool = True
+    role: str = 'USER'
 
 
 class ProductCreate(BaseModel):
@@ -66,6 +67,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         password=bcrypt_context.hash(user.password),
         active=user.active,
+        role=user.role
     )
     db.add(db_user)
     db.commit()
@@ -108,19 +110,6 @@ def user(user: user_dependency, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail='Authentication Failed')
     return {"User": user}
-
-# @router.get("/users/{user_id}")
-# async def user(user: Depends(get_current_user), db: Session = Depends(get_db)):
-#     if user is None:
-#         raise HTTPException(status_code=401, detail='Authentication Failed')
-#     return {"User": user}
-
-# @app.get("/", status_code=status.HTTP_200_OK)
-# async def user(user: None, db: db_dependency):
-#     if user is None:
-#         raise HTTPException(status_code=401, detail='Authentication Failed')
-#     return {"User": user}
-
 
 # Товары магазина
 @router.post("/products/", response_model=IProductItem)

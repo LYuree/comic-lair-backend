@@ -10,17 +10,9 @@ from sqlalchemy.orm import Session
 from app.models import User
 from typing import Annotated
 
-JWT_SECRET = "cairocoders123456789"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
+from app.certs.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# user = {
-#     "id": "6546546",
-#     "username": "cairocoders",
-#     "password": "123456ednalan",
-# }
 
 # Authenticate the user
 async def authenticate_user(username: str, password: str, db):
@@ -32,60 +24,11 @@ async def authenticate_user(username: str, password: str, db):
         return False
     return user
 
-# def create_access_token(payload: dict, expires_delta: timedelta | None = None):
-#     to_encode = payload.copy()
-#     if expires_delta:
-#         expire = datetime.now.timezone.utcnow() + expires_delta
-#     else:
-#         expire = datetime.now.timezone.utcnow() + timedelta(minutes=15)
-#     to_encode.update({"exp": expire})
-#     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
-#     return encoded_jwt
-
-# what do we do with the payload?.. pass user object?
-# token = jwt.encode(payload={'sub': user.id}, key=JWT_SECRET, algorithm='HS256')
-
 def create_access_token(username: str, user_id: str, expires_delta: timedelta):
     encode = {'sub': username, 'id': user_id}
     expires = datetime.utcnow() + expires_delta
     encode.update({'exp': expires})
     return jwt.encode(encode, JWT_SECRET, algorithm=ALGORITHM)
-
-# async def check_access_token(
-#     request: Request,
-#     authorization_header: str = Security(APIKeyHeader(name='Authorization', auto_error=False),
-#     )
-# ) -> str:
-#     # Проверяем, что токен передан
-#     if authorization_header is None:
-#         raise HTTPException(status_code=401, detail="Incorrect user login or password, unauthorized")
-#         # raise JsonHTTPException()
-
-#     # Проверяем токен на соответствие форме
-#     if 'Bearer ' not in authorization_header:
-#         # raise JsonHTTPException()
-#         raise HTTPException(status_code=401, detail="Incorrect user login or password, unauthorized")
-
-#     # Убираем лишнее из токена
-#     clear_token = authorization_header.replace('Bearer ', '')
-
-#     try:
-#         # Проверяем валидность токена
-#         payload = jwt.decode(jwt=clear_token, key=JWT_SECRET, algorithms=['HS256', 'RS256'])
-#     except jwt.InvalidTokenError:
-#         # В случае невалидности возвращаем ошибку
-#         raise jwt.JsonHTTPException()
-    
-#     # Идентифицируем пользователя
-#     # user = await APIUser.filter(id=payload['sub']).first()
-#     # user = await get_user.filter(id=payload['sub']).first()
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if not user:
-#         raise jwt.JsonHTTPException()
-
-#     request.state.user = user
-
-#     return authorization_header
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
 
@@ -99,8 +42,6 @@ def verify_token(token: str = Depends(oauth2_scheme)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=403, detail="Token is invalid or expired")
     
-# just so you know where the class is placed
-# Security.OAuth2PasswordRequestForm
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/users/token")
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
