@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import User
 from typing import Annotated
 
-from app.certs.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.certs.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -24,8 +24,8 @@ async def authenticate_user(username: str, password: str, db):
         return False
     return user
 
-def create_access_token(username: str, user_id: str, expires_delta: timedelta):
-    encode = {'sub': username, 'id': user_id}
+def create_access_token(username: str, user_id: str, role: str, expires_delta: timedelta):
+    encode = {'sub': username, 'id': user_id, 'role' : role}
     expires = datetime.utcnow() + expires_delta
     encode.update({'exp': expires})
     return jwt.encode(encode, JWT_SECRET, algorithm=ALGORITHM)

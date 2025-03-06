@@ -1,14 +1,16 @@
-from fastapi import Response, status, APIRouter, Depends, HTTPException
+from fastapi import Request, Response, status, APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import jwt
 from app.database import get_db
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Annotated
 from app.models import User, Product, Cart, Order
 from app.schemas import IProductItem
 from pydantic import BaseModel
 from sqlalchemy.orm.attributes import flag_modified
-from app.auth import get_current_user, bcrypt_context, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token
+from app.auth import get_current_user, bcrypt_context, JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token, REFRESH_TOKEN_EXPIRE_DAYS
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
+from typing import Optional
 
 router = APIRouter()
 
@@ -20,6 +22,7 @@ class UserCreate(BaseModel):
     password: str
     active: bool = True
     role: str = 'USER'
+    refresh_token: Optional[str] = None
 
 
 class ProductCreate(BaseModel):
@@ -67,7 +70,8 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         password=bcrypt_context.hash(user.password),
         active=user.active,
-        role=user.role
+        role=user.role,
+        refresh_token=None
     )
     db.add(db_user)
     db.commit()
@@ -75,6 +79,33 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     # return db_user is dangerous!
     # return db_user
     return {"user created": "success"}
+
+# @router.get("/get-role")
+# async def get_role(request: Request, token: Annotated[str, Depends(get_token)]):
+#     try:
+#         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+#         role = payload.get("role")
+#         if not role:
+#             raise HTTPException(status_code=403, detail="Role not found in token")
+#         return {"role": role}
+#     except jwt.InvalidTokenError:
+#         raise HTTPException(status_code=403, detail="Invalid token")
+
+
+@router.post("/logout")
+async def logout(
+    user: user_dependency,
+    db: Session = Depends(get_db),
+):  
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Invalidate the refresh token
+    user.refresh_token = None
+    db.commit()
+
+    return {"message": "Logged out successfully"}
+
 
 @router.post("/users/token")
 async def login_for_access_token(response: Response,
@@ -87,9 +118,26 @@ async def login_for_access_token(response: Response,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token(user.username, user.id, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    response.set_cookie(key="access_token",value=f"Bearer {access_token}", httponly=True)  #set HttpOnly cookie in response
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = create_access_token(
+        username=user.username,
+        user_id=user.id,
+        role=user.role,
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    refresh_token = create_access_token(
+        username=user.username,
+        user_id=user.id,
+        role=user.role,
+        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    user.refresh_token = refresh_token
+    db.commit()
+    # response.set_cookie(key="access_token",value=f"Bearer {access_token}", httponly=True)  #set HttpOnly cookie in response
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 # а это вообще безопасно - передавать токен через get?
 # его сервер не может сам прочитать из credentials?
