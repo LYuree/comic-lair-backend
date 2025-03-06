@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import User
 from typing import Annotated
 
-from app.certs.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+from app.certificates.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
