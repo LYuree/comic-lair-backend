@@ -19,7 +19,11 @@ async def authenticate_user(username: str, password: str, db):
     # user = await get_user.filter(id=payload['sub']).first()
     user = db.query(User).filter(User.username == username).first()
     if not user:
-        raise jwt.JsonHTTPException()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if not bcrypt_context.verify(password, user.password):
         return False
     return user

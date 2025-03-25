@@ -11,7 +11,8 @@ app = FastAPI()
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
+    allow_origins=["mail.ru",
+                   "http://localhost:3000",
                    "http://localhost",
                    "https://98vxpncx-3000.euw.devtunnels.ms",
                    "http://localhost:5173"],

@@ -15,6 +15,7 @@ class User(Base):
     active = Column(Boolean, default=True)  # Активность пользователя
     role = Column(String, default='USER')
     refresh_token = Column(String, nullable=True, default=None)
+    activation_token=Column(String, nullable=True)
 
 
     carts = relationship("Cart", back_populates="user")

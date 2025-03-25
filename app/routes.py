@@ -11,6 +11,15 @@ from app.auth import get_current_user, bcrypt_context, JWT_SECRET, ALGORITHM, AC
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from typing import Optional
+from fastapi.responses import RedirectResponse
+import uuid
+
+from email.mime.text import MIMEText 
+from email.mime.image import MIMEImage 
+from email.mime.application import MIMEApplication 
+from email.mime.multipart import MIMEMultipart 
+import smtplib 
+import os
 
 router = APIRouter()
 
@@ -20,9 +29,10 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
-    active: bool = True
+    active: bool
     role: str = 'USER'
     refresh_token: Optional[str] = None
+    activation_token: Optional[str] = None
 
 
 class ProductCreate(BaseModel):
@@ -54,6 +64,50 @@ class OrderCreate(BaseModel):
     user_id: str
     order_details: str
 
+def send_activation_token(user_email: str, activation_token: str):
+    smtp = smtplib.SMTP('smtp.gmail.com', 587) 
+    smtp.ehlo() 
+    smtp.starttls() 
+    smtp.login('noreplyLibrarium@gmail.com', 'kftcxccvnoieoyjb')
+
+    me = "noreplyLibrarium@gmail.com"
+
+    # Create message container - the correct MIME type is multipart/alternative.
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = "Link"
+    msg['From'] = "noreplyLibrarium@gmail.com"
+    msg['To'] = user_email
+
+    # Create the body of the message (a plain-text and an HTML version).
+    text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttp://www.python.org"
+    html = f"""\
+    <html>
+    <head></head>
+    <body>
+        <a href="http://127.0.0.1:8000/activate/{activation_token}">Подтвердить e-mail</a>
+    </body>
+    </html>
+    """
+
+    # Record the MIME types of both parts - text/plain and text/html.
+    part1 = MIMEText(text, 'plain')
+    part2 = MIMEText(html, 'html')
+
+    # Attach parts into message container.
+    # According to RFC 2046, the last part of a multipart message, in this case
+    # the HTML message, is best and preferred.
+    msg.attach(part1)
+    msg.attach(part2)
+
+    # Send the message via local SMTP server.
+
+    # s = smtplib.SMTP('localhost')
+
+    # sendmail function takes 3 arguments: sender's address, recipient's address
+    # and message to send - here it is sent as one string.
+    smtp.sendmail(me, user_email, msg.as_string())
+    smtp.quit()
+
 # Пользователи
 @router.post("/users/")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -64,6 +118,14 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="Username already exists",
         )
 
+    # db_user = db.query(User).filter(User.email == user.email).first()
+    # if db_user:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Email already exists",
+    #     )
+    
+    activation_token=str(uuid.uuid4())
     db_user = User(
         id=user.id,
         username=user.username,
@@ -71,14 +133,33 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         password=bcrypt_context.hash(user.password),
         active=user.active,
         role=user.role,
-        refresh_token=None
+        refresh_token=None,
+        activation_token=activation_token
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    send_activation_token(user.email, activation_token)
     # return db_user is dangerous!
     # return db_user
     return {"user created": "success"}
+
+
+@router.get("/activate/{activation_token}")
+def get_user(activation_token: str, request: Request, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.activation_token == activation_token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # user.activation_token = activation_token
+    user.active = True
+    
+    # flag_modified(user, "activation_token")
+    flag_modified(user, "active")
+    db.commit()
+    db.refresh(user)
+    redirect_url = 'http://localhost:3000/signin'
+    return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+    # return {"user_activated" : "success"}
 
 # @router.get("/get-role")
 # async def get_role(request: Request, token: Annotated[str, Depends(get_token)]):
@@ -116,6 +197,12 @@ async def login_for_access_token(response: Response,
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    elif not user.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User email has not been verified",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(
