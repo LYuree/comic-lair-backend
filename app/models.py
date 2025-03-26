@@ -25,7 +25,7 @@ class User(Base):
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
     price = Column(Float, nullable=False)
@@ -35,9 +35,10 @@ class Product(Base):
     brand = Column(String, nullable=False)
     digital = Column(Boolean, default=False)
     categories = Column(JSON, nullable=False)  # Список строк
-    cover = Column(String, nullable=False)
+    cover_type = Column(String, nullable=False)
+    cover_image = Column(String, nullable=False)
     amount = Column(Integer, nullable=False)
-    images = Column(JSON, nullable=True)  # Список объектов ICoverImage
+    # images = Column(JSON, nullable=True)  # Список объектов ICoverImage
     reviews = Column(JSON, nullable=True)  # Список строк
 
 # Корзина (связь "пользователь — товар")

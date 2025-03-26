@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
@@ -21,7 +21,7 @@ class CartUpdate(BaseModel):
 
 
 class IProductItem(BaseModel):
-    id: int
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     description: str
     price: float
@@ -31,9 +31,10 @@ class IProductItem(BaseModel):
     brand: str
     digital: bool
     categories: List[str]
-    cover: str
+    cover_type: Optional[str] = None
+    cover_image: str
     amount: int
-    images: List[ICoverImage]
+    # images: List[ICoverImage]
     reviews: Optional[List[str]] = None
 
     class Config:

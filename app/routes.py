@@ -259,9 +259,10 @@ def create_product(product: IProductItem, db: Session = Depends(get_db)):
         brand=product.brand,
         digital=product.digital,
         categories=product.categories,
-        cover=product.cover,
+        cover_type=product.cover_type,
+        cover_image=product.cover_image,
         amount=product.amount,
-        images=[image.dict() for image in product.images],
+        # images=[image.dict() for image in product.images],
         reviews=product.reviews,
     )
     db.add(db_product)
