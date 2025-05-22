@@ -14,6 +14,7 @@ from app.certificates.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 # Authenticate the user
 async def authenticate_user(username: str, password: str, db):
     # user = await get_user.filter(id=payload['sub']).first()
