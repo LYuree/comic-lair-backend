@@ -7,7 +7,7 @@ from app.models import User, Product, Cart, Order
 from app.schemas import IProductItem
 from pydantic import BaseModel
 from sqlalchemy.orm.attributes import flag_modified
-from app.auth import get_current_user, bcrypt_context, JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token, REFRESH_TOKEN_EXPIRE_DAYS
+from app.auth import jwt_bearer, get_current_user, bcrypt_context, JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, authenticate_user, create_access_token, user_dependency, verify_token, REFRESH_TOKEN_EXPIRE_DAYS, oauth2_scheme
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from typing import Optional
@@ -228,10 +228,11 @@ async def login_for_access_token(response: Response,
 
 # а это вообще безопасно - передавать токен через get?
 # его сервер не может сам прочитать из credentials?
-@router.get("/verify-token/{token}")
-async def verify_access_token(token: str):
-    verify_token(token=token)
-    return {"message": "token is valid!"}
+
+# @router.get("/verify-token/{token}")
+# async def verify_access_token(token: str):
+#     verify_token(token=token)
+#     return {"message": "token is valid!"}
 
 @router.get("/users/{user_id}")
 def get_user(user_id: str, db: Session = Depends(get_db)):
@@ -408,3 +409,15 @@ def get_all_orders(db: Session = Depends(get_db)):
         return []
     
     return [{"id": order.id, "user_id": order.user_id, "order_details": order.order_details} for order in orders]
+
+
+
+# @app.get("/protected-route", dependencies=[Depends(jwt_bearer)])
+# async def protected_route():
+#     return {"message": "You are authorized"}
+
+
+@router.get("/verify-token", dependencies=[Depends(jwt_bearer)])
+async def verify_access_token(token: str = Depends(oauth2_scheme)):
+    verify_token(token=token)
+    return {"message": "token is valid!"}

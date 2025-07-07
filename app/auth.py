@@ -1,3 +1,5 @@
+from fastapi import Request, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import status, FastAPI, HTTPException, Depends, Security, Request
 import jwt #pip install pyjwt https://pypi.org/project/PyJWT/
 from pydantic import BaseModel
@@ -9,6 +11,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from app.models import User
 from typing import Annotated
+import bcrypt
 
 from app.certificates.secrecy import JWT_SECRET, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
@@ -16,6 +19,19 @@ bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # Authenticate the user
+# async def authenticate_user(username: str, password: str, db):
+#     # user = await get_user.filter(id=payload['sub']).first()
+#     user = db.query(User).filter(User.username == username).first()
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Incorrect username or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     if not bcrypt_context.verify(password, user.password):
+#         return False
+#     return user
+
 async def authenticate_user(username: str, password: str, db):
     # user = await get_user.filter(id=payload['sub']).first()
     user = db.query(User).filter(User.username == username).first()
@@ -25,8 +41,11 @@ async def authenticate_user(username: str, password: str, db):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if not bcrypt_context.verify(password, user.password):
+    
+    # Check if the hashed password matches the provided password
+    if not bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
         return False
+    
     return user
 
 def create_access_token(username: str, user_id: str, role: str, expires_delta: timedelta):
@@ -47,9 +66,9 @@ def verify_token(token: str = Depends(oauth2_scheme)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=403, detail="Token is invalid or expired")
     
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/users/token")
+# oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/users/token")
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         username: str = payload.get('sub')
@@ -64,3 +83,43 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
                             detail='Could not validate user.')
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+
+# custom credentials extraction class
+
+class JWTBearer(HTTPBearer):
+    def __init__(self, auto_error: bool = True):
+        super(JWTBearer, self).__init__(auto_error=auto_error)
+
+    async def __call__(self, request: Request):
+        credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
+        if credentials:
+            if credentials.scheme != "Bearer":
+                raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
+            token = credentials.credentials  # This is the JWT token string
+            if not self.verify_jwt(token):
+                raise HTTPException(status_code=403, detail="Invalid or expired token.")
+            return token
+        else:
+            raise HTTPException(status_code=403, detail="Invalid authorization code.")
+        
+    def verify_jwt(self, token: str = Depends(oauth2_scheme)):
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username is None:
+                raise HTTPException(status_code=403, detail="Token is invalid or expired")
+            return payload
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=403, detail="Token is invalid or expired")
+
+    # def verify_jwt(self, jwtoken: str) -> bool:
+    #     # Implement your JWT decoding and verification logic here
+        
+    #     try:
+    #         payload = jwt.decode(jwtoken)  # Your decode function that verifies signature, expiry, etc.
+    #     except Exception:
+    #         payload = None
+    #     return payload is not None
+
+
+jwt_bearer = JWTBearer()
