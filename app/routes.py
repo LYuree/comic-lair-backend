@@ -417,7 +417,58 @@ def get_all_orders(db: Session = Depends(get_db)):
 #     return {"message": "You are authorized"}
 
 
-@router.get("/verify-token", dependencies=[Depends(jwt_bearer)])
-async def verify_access_token(token: str = Depends(oauth2_scheme)):
+@router.get("/verify-token")
+async def verify_access_token(token: str = Depends(jwt_bearer)):
     verify_token(token=token)
     return {"message": "token is valid!"}
+
+# Arefresh-token endpoint
+@router.post("/users/refresh-token")
+async def refresh_access_token(refresh_token_request: dict, db: Session = Depends(get_db)):
+    refresh_token = refresh_token_request.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token is required"
+        )
+    
+    try:
+        payload = jwt.decode(refresh_token, JWT_SECRET, algorithms=[ALGORITHM])
+        user_id = payload.get("id")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        # Verify the refresh token matches what's stored in the database
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or user.refresh_token != refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        # Create new access token
+        access_token = create_access_token(
+            username=user.username,
+            user_id=user.id,
+            role=user.role,
+            expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )

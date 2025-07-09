@@ -61,10 +61,10 @@ def verify_token(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=403, detail="Token is invalid or expired")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is invalid or expired")
         return payload
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=403, detail="Token is invalid or expired")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is invalid or expired")
     
 # oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/users/token")
 
@@ -86,40 +86,38 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 # custom credentials extraction class
 
+
+
+
 class JWTBearer(HTTPBearer):
     def __init__(self, auto_error: bool = True):
-        super(JWTBearer, self).__init__(auto_error=auto_error)
+        super().__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
-        credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
+        credentials: HTTPAuthorizationCredentials = await super().__call__(request)
         if credentials:
-            if credentials.scheme != "Bearer":
-                raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
-            token = credentials.credentials  # This is the JWT token string
+            if credentials.scheme.lower() != "bearer":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme.")
+            token = credentials.credentials
             if not self.verify_jwt(token):
-                raise HTTPException(status_code=403, detail="Invalid or expired token.")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.")
             return token
         else:
-            raise HTTPException(status_code=403, detail="Invalid authorization code.")
-        
-    def verify_jwt(self, token: str = Depends(oauth2_scheme)):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization code.")
+
+    def verify_jwt(self, token: str) -> bool:
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-            username: str = payload.get("sub")
+            username = payload.get("sub")
             if username is None:
-                raise HTTPException(status_code=403, detail="Token is invalid or expired")
-            return payload
+                return False
+            return True
+        except jwt.ExpiredSignatureError:
+            return False
         except jwt.InvalidTokenError:
-            raise HTTPException(status_code=403, detail="Token is invalid or expired")
+            return False
 
-    # def verify_jwt(self, jwtoken: str) -> bool:
-    #     # Implement your JWT decoding and verification logic here
-        
-    #     try:
-    #         payload = jwt.decode(jwtoken)  # Your decode function that verifies signature, expiry, etc.
-    #     except Exception:
-    #         payload = None
-    #     return payload is not None
+
 
 
 jwt_bearer = JWTBearer()
